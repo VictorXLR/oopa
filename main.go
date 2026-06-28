@@ -16,9 +16,9 @@
 //
 // Environment:
 //
-//	LMSTUDIO_URL    LM Studio base URL (auto-detected by default)
-//	LMSTUDIO_MODEL  force a model id; otherwise best non-reasoning model
-//	LMSTUDIO_API_KEY optional bearer token
+// OOPA_LLM_URL    LLM base URL (auto-detected by default)
+// OOPA_LLM_MODEL  force a model id; otherwise best non-reasoning model
+// OOPA_LLM_API_KEY optional bearer token
 //	OOPA_STORE      path to store JSON (default ~/.oopa-todo.json)
 //	OOPA_WEB_ADDR   companion web UI address in TUI mode
 package main
@@ -63,17 +63,17 @@ func run(args []string) error {
 	// Settings precedence: explicit env var > persisted config > auto-probe.
 	cfgPath := config.DefaultPath()
 	cfg, _ := config.Load(cfgPath)
-	baseURL := envOr("LMSTUDIO_URL", cfg.BaseURL)
-	model := envOr("LMSTUDIO_MODEL", cfg.Model)
+	baseURL := envOr("OOPA_LLM_URL", cfg.BaseURL)
+	model := envOr("OOPA_LLM_MODEL", cfg.Model)
 
-	client := llm.New(baseURL, model, os.Getenv("LMSTUDIO_API_KEY"))
+	client := llm.New(baseURL, model, os.Getenv("OOPA_LLM_API_KEY"))
 	llmOK := true
 	if err := client.PickModel(); err != nil {
 		llmOK = false
-		fmt.Fprintf(os.Stderr, "warn: could not reach LM Studio (%v)\n", err)
-		fmt.Fprintln(os.Stderr, "      magic breakdown will fail until LM Studio is running and a model is loaded.")
+		fmt.Fprintf(os.Stderr, "warn: could not reach LLM provider (%v)\n", err)
+		fmt.Fprintln(os.Stderr, "      magic breakdown will fail until an LLM server is running and a model is loaded.")
 		fmt.Fprintln(os.Stderr, "      set the endpoint in-app (settings / url command, or the web settings panel),")
-		fmt.Fprintln(os.Stderr, "      via LMSTUDIO_URL, or run it on one of these auto-probed hosts:")
+		fmt.Fprintln(os.Stderr, "      via OOPA_LLM_URL, or run it on one of these auto-probed hosts:")
 		for _, u := range llm.DefaultBaseURLs {
 			fmt.Fprintf(os.Stderr, "        %s\n", u)
 		}

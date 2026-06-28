@@ -2,7 +2,8 @@
 
 A tiny, single-binary clone of goblin.tools' **Magic Todo**. Magically breaks
 overwhelming tasks into small, concrete steps — recursively, until they're
-doable.
+doable. It is a local-first, privacy-focused tool that works with any
+OpenAI-compatible LLM server (like LM Studio, Ollama, or vLLM).
 
 Runs two ways from the **same binary**, sharing one JSON store and one
 breakdown engine:
@@ -38,9 +39,9 @@ light/dark theme switch and an LM Studio settings panel.
 
 | var             | default                          | meaning                       |
 |-----------------|----------------------------------|-------------------------------|
-| `LMSTUDIO_URL`  | `http://localhost:1234/v1`       | base URL of the LLM server    |
-| `LMSTUDIO_MODEL`| auto (first loaded model)        | force a model id              |
-| `LMSTUDIO_API_KEY` | (none)                        | optional bearer token         |
+| `OOPA_LLM_URL`  | LLM base URL (auto-detected by default)    |
+| `OOPA_LLM_MODEL`| force a model id; otherwise best non-reasoning model |
+| `OOPA_LLM_API_KEY` | (none)                        | optional bearer token         |
 | `OOPA_STORE`    | `~/.oopa-todo.json`              | where your task tree is saved |
 | `OOPA_WEB_ADDR` | `127.0.0.1:7777`                 | companion web UI address in TUI mode |
 
@@ -54,8 +55,8 @@ A                   add a subtask under the selected task
 e                   edit selected task
 m                   break selected task into subtasks
 d / Delete          delete selected task and its subtree
-M                   choose the LM Studio model
-u                   set the LM Studio URL
+M                   choose the LLM model
+u                   set the LLM URL
 S                   settings overview
 X                   export JSON or Markdown
 r                   reload from disk
