@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Magic Todo</title>
+<script>
+  try {
+    const theme = localStorage.getItem("oopa-theme");
+    if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+  } catch (_) {}
+</script>
+<style>
+  /* ============================================================
+     Magic Todo — Bauhaus aesthetic.
+     Form follows function: primary colors (red / blue / yellow)
+     on neutral paper, geometric primitives (circle / square /
+     triangle), thick black rules, a strict asymmetric grid, and
+     a geometric sans set tight and uppercase. Kandinsky's canon:
+     yellow = triangle, blue = circle, red = square.
+     Functionality is untouched; this is a restyle of the shell.
+     ============================================================ */
+  :root {
+    --paper:     #ece7da;   /* warm off-white, poster ground */
+    --paper-2:   #e2dcc9;
+    --ink:       #14110f;   /* near-black */
+    --ink-soft:  #4a463f;
+    --ink-faint: #8c8676;
+    --line:      #14110f;   /* hairline becomes a thick black rule */
+    --line-soft: #c4bda8;
+    --red:       #d7263d;   /* square · primary accent / magic */
+    --blue:      #1f4ed8;   /* circle · structure / links */
+    --yellow:    #f4b400;   /* triangle · highlight */
+    --done:      #9a9484;
+    --danger:    #d7263d;
+    --grid:      rgba(20,17,15,0.05);
+    --radius:    0;         /* Bauhaus = hard edges */
+    --sans: "Futura", "Avenir Next", "Avenir", "Trebuchet MS", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: "SFMono-Regular", ui-monospace, "JetBrains Mono", Menlo, monospace;
+  }
+  :root[data-theme="dark"] {
+    --paper:     #15140f;
+    --paper-2:   #1d1c16;
+    --ink:       #efe9da;
+    --ink-soft:  #b3ac98;
+    --ink-faint: #756f5d;
+    --line:      #efe9da;
+    --line-soft: #34322a;
+    --red:       #ef4358;
+    --blue:      #6f8bff;
+    --yellow:    #f6c945;
+    --done:      #5e5a4d;
+    --grid:      rgba(239,233,218,0.035);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+      --paper:     #15140f;
+      --paper-2:   #1d1c16;
+      --ink:       #efe9da;
+      --ink-soft:  #b3ac98;
+      --ink-faint: #756f5d;
+      --line:      #efe9da;
+      --line-soft: #34322a;
+      --red:       #ef4358;
+      --blue:      #6f8bff;
+      --yellow:    #f6c945;
+      --done:      #5e5a4d;
+      --grid:      rgba(239,233,218,0.035);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background-color: var(--paper);
+    /* a structural grid — the draftsman's underlay */
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 32px 32px;
+    line-height: 1.45;
+    font-size: 15px;
+    letter-spacing: .005em;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .frame {
+    max-width: 920px;
+    margin: 0 auto;
+    min-height: 100vh;
+    border-left: 1px solid var(--line-soft);
+    border-right: 1px solid var(--line-soft);
+    position: relative;
+  }
+
+  /* ---- masthead ------------------------------------------------ */
+  header {
+    position: relative;
+    padding: 2.6rem 2.4rem 1.8rem;
+    border-bottom: 6px solid var(--ink);   /* heavy black rule */
+    overflow: hidden;
+  }
+  .eyebrow {
+    font-family: var(--sans);
+    font-size: .72rem;
+    letter-spacing: .32em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink-faint);
+    margin: 0 0 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .header-actions { display: inline-flex; align-items: center; gap: 1rem; }
+  .eyebrow .label-dot {
+    display: inline-block; width: 10px; height: 10px;
+    background: var(--red); margin-right: .55rem; vertical-align: -1px;
+  }
+  h1 {
+    font-size: clamp(2.4rem, 7vw, 4rem);
+    line-height: .92;
+    letter-spacing: -.02em;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin: 0;
+  }
+  h1 .slab {
+    display: inline-block; background: var(--yellow);
+    padding: .02em .12em; color: var(--ink);
+  }
+  .lede {
+    margin: 1.1rem 0 0;
+    max-width: 48ch;
+    color: var(--ink-soft);
+    font-size: .98rem;
+    letter-spacing: 0;
+  }
+  .lede strong { background: var(--yellow); color: var(--ink); padding: 0 .18em; font-weight: 700; }
+  .meta {
+    margin-top: 1.5rem;
+    display: flex;
+    gap: 0;
+    font-family: var(--sans);
+    font-size: .74rem;
+    letter-spacing: .18em;
+    color: var(--ink);
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .meta span { padding: .35rem .9rem; border: 2px solid var(--ink); margin-right: .6rem; }
+  .meta b { font-weight: 800; }
+
+  /* geometric mark — the Kandinsky triad painted into the corner */
+  .shapes { position: absolute; right: 2.2rem; top: 2.2rem; width: 92px; height: 92px; pointer-events: none; }
+  .shapes .sh { position: absolute; }
+  .shapes .circle {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--blue); right: 0; top: 0;
+  }
+  .shapes .square {
+    width: 34px; height: 34px; background: var(--red);
+    left: 2px; bottom: 0;
+  }
+  .shapes .tri {
+    width: 0; height: 0;
+    border-left: 17px solid transparent;
+    border-right: 17px solid transparent;
+    border-bottom: 30px solid var(--yellow);
+    left: 30px; top: 12px;
+  }
+
+  /* ---- compose bar -------------------------------------------- */
+  .compose {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .compose input {
+    border: 0;
+    background: transparent;
+    padding: 1.25rem 2.4rem;
+    font-family: var(--sans);
+    font-size: 1.05rem;
+    letter-spacing: 0;
+    color: var(--ink);
+    outline: none;
+  }
+  .compose input::placeholder { color: var(--ink-faint); }
+  .compose input:focus { background: var(--paper-2); }
+  .compose button {
+    border: 0;
+    border-left: 2px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: .78rem;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    padding: 0 2.1rem;
+    cursor: pointer;
+    transition: background .12s ease, color .12s ease;
+  }
+  .compose button:hover { background: var(--red); color: var(--paper); }
+
+  /* ---- error banner ------------------------------------------- */
+  .err {
+    display: none;
+    font-family: var(--sans);
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--paper);
+    background: var(--red);
+    padding: .7rem 2.4rem;
+    border-bottom: 2px solid var(--ink);
+  }
+  .err.show { display: block; }
+
+  /* ---- task tree ---------------------------------------------- */
+  .sheet { padding: .2rem 0 4rem; }
+
+  .empty {
+    padding: 4rem 2.4rem;
+    text-align: center;
+    color: var(--ink-faint);
+    font-family: var(--sans);
+    font-size: .86rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .empty span { background: var(--yellow); color: var(--ink); padding: 0 .25em; }
+
+  ul { list-style: none; margin: 0; padding: 0; }
+
+  .task { position: relative; }
+  .task > .bar {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto;
+    align-items: center;
+    gap: 1rem;
+    padding: .9rem 2.4rem;
+    border-bottom: 1px solid var(--line-soft);
+    transition: background .1s ease;
+  }
+  .task > .bar:hover { background: var(--paper-2); }
+
+  /* index marker: bold geometric numeral, blue */
+  .idx {
+    font-family: var(--sans);
+    font-size: .9rem;
+    font-weight: 800;
+    color: var(--blue);
+    min-width: 2.6ch;
+    text-align: right;
+    user-select: none;
+    letter-spacing: -.02em;
+  }
+
+  /* checkbox — a hard square, red when done */
+  .check {
+    appearance: none;
+    width: 18px; height: 18px;
+    border: 2px solid var(--ink);
+    border-radius: var(--radius);
+    background: transparent;
+    cursor: pointer;
+    display: grid;
+    place-content: center;
+    transition: background .1s, border-color .1s;
+  }
+  .check:hover { border-color: var(--red); }
+  .check:checked { background: var(--red); border-color: var(--red); }
+  .check:checked::after {
+    content: "";
+    width: 10px; height: 4px;
+    border-left: 3px solid var(--paper);
+    border-bottom: 3px solid var(--paper);
+    transform: rotate(-45deg) translate(0, -1px);
+  }
+
+  .title {
+    font-size: 1rem;
+    color: var(--ink);
+    word-break: break-word;
+    letter-spacing: 0;
+  }
+  .task.done > .bar > .title {
+    color: var(--done);
+    text-decoration: line-through;
+    text-decoration-thickness: 2px;
+  }
+
+  .actions {
+    display: flex;
+    gap: .4rem;
+    opacity: 0;
+    transition: opacity .12s ease;
+  }
+  .task > .bar:hover .actions,
+  .task > .bar:focus-within .actions { opacity: 1; }
+  .act {
+    font-family: var(--sans);
+    font-size: .68rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    font-weight: 700;
+    border: 2px solid var(--ink);
+    background: var(--paper);
+    color: var(--ink);
+    padding: .38rem .8rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all .1s ease;
+  }
+  .act:hover { background: var(--ink); color: var(--paper); }
+  .act.magic { background: var(--red); color: var(--paper); border-color: var(--red); }
+  .act.magic:hover { background: var(--ink); border-color: var(--ink); }
+  .act.rm:hover { background: var(--red); color: var(--paper); border-color: var(--red); }
+  .act:disabled { opacity: .35; cursor: default; }
+
+  /* nested children: a thick black structural guide line */
+  ul.children {
+    margin-left: 2rem;
+    border-left: 3px solid var(--ink);
+  }
+  ul.children > .task > .bar { padding-left: 1.5rem; }
+  ul.children ul.children { margin-left: 1.6rem; }
+
+  /* spinner row */
+  .spinner {
+    display: none;
+    align-items: center;
+    gap: .7rem;
+    padding: .6rem 2.4rem .6rem 5.6rem;
+    font-family: var(--sans);
+    font-size: .74rem;
+    font-weight: 700;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--red);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .spinner.show { display: flex; }
+  .dot {
+    width: 10px; height: 10px;
+    background: var(--red);
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: .25; transform: scale(.6); } 50% { opacity: 1; transform: scale(1); } }
+
+  footer {
+    border-top: 4px solid var(--ink);
+    padding: 1.5rem 2.4rem 2.6rem;
+    font-family: var(--sans);
+    font-size: .7rem;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink-faint);
+    display: flex;
+    justify-content: space-between;
+  }
+  footer a { color: var(--blue); text-decoration: none; border-bottom: 2px solid var(--blue); }
+  footer a:hover { color: var(--red); border-color: var(--red); }
+
+  @media (max-width: 640px) {
+    header { padding: 2rem 1.3rem 1.3rem; }
+    .shapes { width: 64px; height: 64px; right: 1.3rem; top: 1.3rem; }
+    .shapes .circle { width: 30px; height: 30px; }
+    .shapes .square { width: 24px; height: 24px; }
+    .shapes .tri { border-left-width: 12px; border-right-width: 12px; border-bottom-width: 21px; left: 20px; top: 8px; }
+    .compose input { padding: 1rem 1.3rem; }
+    .compose button { padding: 0 1.3rem; }
+    .task > .bar, .err, .empty, .spinner, footer { padding-left: 1.3rem; padding-right: 1.3rem; }
+    .spinner { padding-left: 3.6rem; }
+    ul.children { margin-left: 1.2rem; }
+    .actions { opacity: 1; }
+    .meta span { padding: .3rem .6rem; margin-right: .4rem; }
+    .header-actions { gap: .65rem; }
+    .eyebrow .gear, .eyebrow .theme { letter-spacing: .16em; }
+  }
+
+  /* ---- settings ----------------------------------------------- */
+  .eyebrow .gear, .eyebrow .theme {
+    background: none; border: 0; cursor: pointer; padding: 0;
+    font-family: var(--sans); font-size: .72rem; letter-spacing: .28em;
+    text-transform: uppercase; font-weight: 700; color: var(--ink-faint);
+    border-bottom: 2px solid transparent;
+    display: inline-flex; align-items: center;
+  }
+  .eyebrow .gear:hover, .eyebrow .theme:hover { color: var(--blue); border-color: var(--blue); }
+  .eyebrow .gear .dotmark {
+    display: inline-block; width: 10px; height: 10px;
+    margin-right: .5rem; background: var(--ink-faint);
+  }
+  .eyebrow .gear.online .dotmark { background: var(--blue); }
+  .eyebrow .gear.offline .dotmark { background: var(--red); }
+  .eyebrow .theme .dotmark {
+    display: inline-block; width: 10px; height: 10px;
+    margin-right: .5rem; background: var(--yellow); border-radius: 50%;
+  }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(20,17,15,0.5);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 6vh 1rem; z-index: 50;
+  }
+  .overlay.show { display: flex; }
+  .panel {
+    width: 100%; max-width: 540px; background: var(--paper);
+    border: 3px solid var(--ink);
+    box-shadow: 10px 10px 0 var(--ink);
+  }
+  .panel-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 1.3rem 1.5rem; border-bottom: 4px solid var(--ink);
+  }
+  .panel-head h2 { margin: 0; font-size: 1.15rem; letter-spacing: .04em; text-transform: uppercase; font-weight: 800; }
+  .panel-head .tag {
+    font-family: var(--sans); font-size: .68rem; letter-spacing: .26em;
+    text-transform: uppercase; font-weight: 700; color: var(--paper);
+    background: var(--blue); padding: .2rem .6rem;
+  }
+  .panel-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.4rem; }
+  .field { display: flex; flex-direction: column; gap: .5rem; }
+  .field label {
+    font-family: var(--sans); font-size: .7rem; letter-spacing: .2em;
+    text-transform: uppercase; font-weight: 700; color: var(--ink);
+  }
+  .field .hint { font-size: .8rem; color: var(--ink-faint); }
+  .field .hint code { font-family: var(--mono); color: var(--ink-soft); background: var(--paper-2); padding: 0 .25em; }
+  .field input[type=text], .field select {
+    width: 100%; padding: .7rem .8rem; font-size: .95rem; font-family: var(--sans);
+    background: var(--paper-2); color: var(--ink);
+    border: 2px solid var(--ink); border-radius: var(--radius); outline: none;
+  }
+  .field input[type=text]:focus, .field select:focus { border-color: var(--red); }
+  .url-row { display: grid; grid-template-columns: 1fr auto; gap: .5rem; }
+  .chiprow { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .chip {
+    font-family: var(--sans); font-size: .68rem; letter-spacing: .1em;
+    font-weight: 700; border: 2px solid var(--ink); background: var(--paper-2);
+    color: var(--ink); padding: .3rem .55rem; border-radius: var(--radius); cursor: pointer;
+    text-transform: uppercase;
+  }
+  .chip:hover { background: var(--yellow); border-color: var(--ink); }
+  .panel-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    padding: 1.1rem 1.5rem; border-top: 2px solid var(--line-soft);
+  }
+  .panel-foot .status { font-family: var(--sans); font-size: .74rem; color: var(--ink-faint); font-weight: 600; }
+  .panel-foot .status.bad { color: var(--red); }
+  .panel-foot .status.good { color: var(--blue); }
+  .btn {
+    font-family: var(--sans); font-size: .74rem; letter-spacing: .2em;
+    text-transform: uppercase; font-weight: 700; padding: .6rem 1.1rem; cursor: pointer;
+    border: 2px solid var(--ink); background: var(--paper); color: var(--ink);
+    border-radius: var(--radius);
+  }
+  .btn:hover { background: var(--ink); color: var(--paper); }
+  .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .btn.primary:hover { background: var(--red); border-color: var(--red); }
+  .btn.ghost { background: transparent; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <header>
+    <div class="shapes" aria-hidden="true">
+      <span class="sh circle"></span>
+      <span class="sh square"></span>
+      <span class="sh tri"></span>
+    </div>
+    <p class="eyebrow"><span><span class="label-dot"></span>Magic&nbsp;Todo</span><span class="header-actions"><button type="button" id="theme-toggle" class="theme"><span class="dotmark"></span><span id="theme-label">Theme</span></button><button type="button" id="gear" class="gear"><span class="dotmark"></span><span id="gear-label">LM&nbsp;Studio</span></button></span></p>
+    <h1>Break it <span class="slab">down.</span></h1>
+    <p class="lede">A drafting table for overwhelming tasks. Add anything, then press <strong>magic</strong> to decompose it into small, concrete, doable steps.</p>
+    <div class="meta">
+      <span><b id="m-total">0</b> tasks</span>
+      <span><b id="m-done">0</b> done</span>
+      <span><b id="m-open">0</b> open</span>
+    </div>
+  </header>
+
+  <form id="add" class="compose">
+    <input type="text" id="title" placeholder="e.g. Plan my move to a new apartment…" autofocus required autocomplete="off" />
+    <button class="primary" type="submit">Add task</button>
+  </form>
+
+  <div id="err" class="err"></div>
+
+  <main class="sheet">
+    <ul id="tree"></ul>
+  </main>
+
+  <footer>
+    <span>oopa · magic todo</span>
+    <span>space&nbsp;·&nbsp;toggle&nbsp;&nbsp;/&nbsp;&nbsp;magic&nbsp;·&nbsp;decompose</span>
+  </footer>
+</div>
+
+<div id="settings-overlay" class="overlay" aria-hidden="true">
+  <div class="panel" role="dialog" aria-label="Settings">
+    <div class="panel-head">
+      <h2>Settings</h2>
+      <span class="tag">LM Studio</span>
+    </div>
+    <div class="panel-body">
+      <div class="field">
+        <label for="set-url">LM Studio base URL</label>
+        <div class="url-row">
+          <input type="text" id="set-url" placeholder="http://127.0.0.1:1234/v1" autocomplete="off" spellcheck="false" />
+          <button type="button" id="set-refresh" class="btn">Connect</button>
+        </div>
+        <span class="hint">The OpenAI-compatible endpoint exposed by LM Studio. It must end in <code>/v1</code>.</span>
+        <div class="chiprow" id="url-defaults"></div>
+      </div>
+      <div class="field">
+        <label for="set-model">Active model</label>
+        <select id="set-model"></select>
+        <span class="hint">Installed models from <code>/v1/models</code>. Embedding models are hidden.</span>
+      </div>
+    </div>
+    <div class="panel-foot">
+      <span class="status" id="set-status"></span>
+      <span>
+        <button type="button" id="set-cancel" class="btn ghost">Close</button>
+        <button type="button" id="set-save" class="btn primary">Save</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<template id="node">
+  <li class="task">
+    <div class="bar">
+      <span class="idx"></span>
+      <input type="checkbox" class="check" />
+      <span class="title"></span>
+      <span class="actions">
+        <button class="act magic" type="button">magic</button>
+        <button class="act rm" type="button">del</button>
+      </span>
+    </div>
+    <div class="spinner"><span class="dot"></span><span>decomposing…</span></div>
+    <ul class="children"></ul>
+  </li>
+</template>
+
+<script>
+const API = "/api";
+const errEl = document.getElementById("err");
+const treeEl = document.getElementById("tree");
+const tmpl = document.getElementById("node");
+
+function setErr(e) {
+  errEl.textContent = e ? ("! " + e) : "";
+  errEl.classList.toggle("show", !!e);
+}
+
+const themeBtn = document.getElementById("theme-toggle");
+const themeLabel = document.getElementById("theme-label");
+
+function preferredTheme() {
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function activeTheme() {
+  return document.documentElement.dataset.theme || preferredTheme();
+}
+
+function updateThemeButton(theme) {
+  const next = theme === "dark" ? "Light" : "Dark";
+  themeLabel.textContent = next;
+  themeBtn.setAttribute("aria-label", "Switch to " + next.toLowerCase() + " mode");
+}
+
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  try { localStorage.setItem("oopa-theme", theme); } catch (_) {}
+  updateThemeButton(theme);
+}
+
+updateThemeButton(activeTheme());
+themeBtn.addEventListener("click", () => setTheme(activeTheme() === "dark" ? "light" : "dark"));
+
+async function api(path, opts) {
+  const r = await fetch(API + path, opts);
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(t.trim() || ("HTTP " + r.status));
+  }
+  const ct = r.headers.get("content-type") || "";
+  return ct.includes("application/json") ? r.json() : r.text();
+}
+
+let stats = { total: 0, done: 0 };
+function countTasks(list) {
+  for (const t of list || []) {
+    stats.total++;
+    if (t.done) stats.done++;
+    countTasks(t.children);
+  }
+}
+function paintStats() {
+  document.getElementById("m-total").textContent = stats.total;
+  document.getElementById("m-done").textContent = stats.done;
+  document.getElementById("m-open").textContent = stats.total - stats.done;
+}
+
+async function refresh() {
+  setErr("");
+  treeEl.innerHTML = "";
+  stats = { total: 0, done: 0 };
+  try {
+    const root = await api("/root");
+    const tasks = root.tasks || [];
+    countTasks(tasks);
+    paintStats();
+    if (tasks.length === 0) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.innerHTML = 'No tasks yet — type one above and press <span>Add task</span>.';
+      treeEl.appendChild(li);
+      return;
+    }
+    tasks.forEach((t, i) => treeEl.appendChild(render(t, String(i + 1))));
+  } catch (e) {
+    setErr(e.message);
+  }
+}
+
+function render(t, idx) {
+  const n = tmpl.content.cloneNode(true);
+  const li = n.querySelector(".task");
+  li.dataset.id = t.id;
+  if (t.done) li.classList.add("done");
+  n.querySelector(".idx").textContent = idx;
+  n.querySelector(".check").checked = !!t.done;
+  n.querySelector(".title").textContent = t.title;
+
+  const kids = n.querySelector(".children");
+  const children = t.children || [];
+  children.forEach((c, i) => kids.appendChild(render(c, idx + "." + (i + 1))));
+  return n;
+}
+
+// toggle done
+treeEl.addEventListener("change", async (e) => {
+  if (!e.target.matches(".check")) return;
+  const li = e.target.closest(".task");
+  try {
+    await api("/toggle/" + li.dataset.id, { method: "POST" });
+    refresh();
+  } catch (err) { setErr(err.message); refresh(); }
+});
+
+// magic + delete
+treeEl.addEventListener("click", async (e) => {
+  const li = e.target.closest(".task");
+  if (!li) return;
+  const id = li.dataset.id;
+
+  if (e.target.matches(".rm")) {
+    try { await api("/task/" + id, { method: "DELETE" }); refresh(); }
+    catch (err) { setErr(err.message); }
+    return;
+  }
+
+  if (e.target.matches(".magic")) {
+    const spin = li.querySelector(".spinner");
+    spin.classList.add("show");
+    li.querySelectorAll(".act").forEach((b) => (b.disabled = true));
+    setErr("");
+    try {
+      await api("/magic/" + id, { method: "POST" });
+      refresh();
+    } catch (err) {
+      setErr(err.message);
+      spin.classList.remove("show");
+      li.querySelectorAll(".act").forEach((b) => (b.disabled = false));
+    }
+  }
+});
+
+document.getElementById("add").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const input = document.getElementById("title");
+  const title = input.value.trim();
+  if (!title) return;
+  try {
+    await api("/task?title=" + encodeURIComponent(title), { method: "POST" });
+    input.value = "";
+    input.focus();
+    refresh();
+  } catch (err) { setErr(err.message); }
+});
+
+/* ---- settings panel ---------------------------------------------- */
+const overlay = document.getElementById("settings-overlay");
+const gear = document.getElementById("gear");
+const gearLabel = document.getElementById("gear-label");
+const urlInput = document.getElementById("set-url");
+const modelSel = document.getElementById("set-model");
+const setStatus = document.getElementById("set-status");
+const defaultsRow = document.getElementById("url-defaults");
+
+function statusMsg(msg, kind) {
+  setStatus.textContent = msg || "";
+  setStatus.className = "status" + (kind ? " " + kind : "");
+}
+
+function fillModels(models, current) {
+  modelSel.innerHTML = "";
+  if (!models || models.length === 0) {
+    const o = document.createElement("option");
+    o.textContent = "(no models found)";
+    o.value = "";
+    modelSel.appendChild(o);
+    modelSel.disabled = true;
+    return;
+  }
+  modelSel.disabled = false;
+  for (const m of models) {
+    const o = document.createElement("option");
+    o.value = m; o.textContent = m;
+    if (m === current) o.selected = true;
+    modelSel.appendChild(o);
+  }
+}
+
+function applySettings(s, updateHeader = true) {
+  urlInput.value = s.base_url || "";
+  fillModels(s.models, s.model);
+  // default url chips
+  defaultsRow.innerHTML = "";
+  for (const d of s.defaults || []) {
+    const c = document.createElement("button");
+    c.type = "button"; c.className = "chip"; c.textContent = d;
+    c.addEventListener("click", () => { urlInput.value = d; loadModels(d); });
+    defaultsRow.appendChild(c);
+  }
+  const online = !s.error && s.models && s.models.length > 0;
+  if (updateHeader) {
+    gear.classList.toggle("online", online);
+    gear.classList.toggle("offline", !online);
+    gearLabel.textContent = s.model ? s.model : "LM Studio";
+  }
+  if (s.error) statusMsg(s.error, "bad");
+  else statusMsg(online ? "connected · " + s.models.length + " models" : "no models loaded", online ? "good" : "bad");
+}
+
+async function loadModels(urlOverride) {
+  statusMsg("connecting…");
+  try {
+    // Probe a candidate URL without mutating the saved settings.
+    const opts = urlOverride
+      ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ base_url: urlOverride }) }
+      : undefined;
+    const s = await api(urlOverride ? "/probe" : "/models", opts);
+    applySettings(s, !urlOverride);
+  } catch (err) {
+    statusMsg(err.message, "bad");
+    gear.classList.remove("online"); gear.classList.add("offline");
+  }
+}
+
+async function openSettings() {
+  overlay.classList.add("show");
+  overlay.setAttribute("aria-hidden", "false");
+  await loadModels();
+  urlInput.focus();
+}
+function closeSettings() {
+  overlay.classList.remove("show");
+  overlay.setAttribute("aria-hidden", "true");
+}
+
+gear.addEventListener("click", openSettings);
+document.getElementById("set-cancel").addEventListener("click", closeSettings);
+overlay.addEventListener("click", (e) => { if (e.target === overlay) closeSettings(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && overlay.classList.contains("show")) closeSettings(); });
+
+document.getElementById("set-refresh").addEventListener("click", () => {
+  const u = urlInput.value.trim();
+  loadModels(u || undefined);
+});
+
+document.getElementById("set-save").addEventListener("click", async () => {
+  statusMsg("saving…");
+  try {
+    const s = await api("/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ base_url: urlInput.value.trim(), model: modelSel.value }),
+    });
+    applySettings(s);
+    statusMsg("saved · using " + (s.model || "—"), "good");
+    setTimeout(closeSettings, 700);
+  } catch (err) {
+    statusMsg(err.message, "bad");
+  }
+});
+
+// Reflect connection state in the header badge on first load.
+loadModels().catch(() => {});
+
+refresh();
+
+</script>
+</body>
+</html>
