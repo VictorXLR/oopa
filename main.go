@@ -1,4 +1,4 @@
-// Command oopa is a tiny goblin.tools-style Magic Todo app.
+// Command oopa is a tiny Magic Todo app.
 //
 // It runs as a full-screen terminal UI by default, or a small web
 // server. The same todo store and breakdown engine back every surface,

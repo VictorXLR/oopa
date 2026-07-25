@@ -20,9 +20,8 @@ type Engine struct {
 }
 
 // New builds an engine with sane defaults. MaxDepth is 1 so a single
-// "magic" expands one level on demand (goblin.tools style) rather than
-// firing dozens of recursive LLM calls. Raise MaxDepth to opt into
-// deeper auto-breakdown.
+// "magic" expands one level on demand rather than firing dozens of
+// recursive LLM calls. Raise MaxDepth to opt into deeper auto-breakdown.
 func New(c *llm.Client) *Engine {
 	return &Engine{LLM: c, MaxDepth: 1, MaxChildren: 6}
 }
@@ -48,7 +47,7 @@ func (e *Engine) Break(t *todo.Task, depth int) error {
 	for _, title := range children {
 		child := todo.New(title)
 		t.AddChild(child)
-		// Recurse one level — goblin.tools style — but stop if the model
+		// Recurse one level — but stop if the model
 		// is asking for boiling-the-ocean splits.
 		if err := e.Break(child, depth+1); err != nil {
 			// Soft fail: keep this subtree's children empty but continue.
