@@ -1,6 +1,5 @@
 // Package export formats a todo tree for export: as JSON (the raw store)
-// or as a Markdown checkbox tree, the goblin.tools-friendly way to share
-// a list with another human.
+// or as a Markdown checkbox tree to share with another human.
 package export
 
 import (

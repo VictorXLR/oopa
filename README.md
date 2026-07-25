@@ -1,6 +1,6 @@
 # oopa — magic todo
 
-A tiny, single-binary clone of goblin.tools' **Magic Todo**. Magically breaks
+A tiny, single-binary **Magic Todo** app. Magically breaks
 overwhelming tasks into small, concrete steps — recursively, until they're
 doable. It is a local-first, privacy-focused tool that works with any
 OpenAI-compatible LLM server (like LM Studio, Ollama, or vLLM).
@@ -78,6 +78,6 @@ internal/web/            HTTP server + embedded HTML UI
 ## Notes
 
 - Breakdowns cap at depth 3 and 6 children per level to keep the tree
-  sane — same idea as goblin.tools, where you decide when to keep
+  sane — you decide when to keep
   breaking. Click `magic` again on a leaf to dig deeper.
 - No telemetry, no network calls except to your own local LM Studio.

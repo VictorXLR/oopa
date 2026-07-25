@@ -1,5 +1,5 @@
 // Package tui is a tview-based, fully navigable terminal UI for Magic
-// Todo, in the spirit of goblin.tools. The task tree is a real TreeView:
+// Todo. The task tree is a real TreeView:
 // move with the arrow keys (or j/k), and act on the highlighted task with
 // single keystrokes — no command line, no task ids to remember.
 //
@@ -160,10 +160,7 @@ func (a *App) rebuildTree(selectID string) {
 	tasks := a.Root.Tasks
 
 	if len(tasks) == 0 {
-		hint := tview.NewTreeNode("(no tasks yet — press 'a' to add one)").
-			SetColor(tcell.ColorGray).
-			SetSelectable(false)
-		rootNode.AddChild(hint)
+		rootNode.AddChild(emptyTreeHint())
 		return
 	}
 
@@ -194,6 +191,79 @@ func (a *App) makeNode(t *todo.Task) *tview.TreeNode {
 		n.AddChild(a.makeNode(c))
 	}
 	return n
+}
+
+func emptyTreeHint() *tview.TreeNode {
+	return tview.NewTreeNode("(no tasks yet — press 'a' to add one)").
+		SetColor(tcell.ColorGray).
+		SetSelectable(false)
+}
+
+func (a *App) insertTaskNode(parentID string, t *todo.Task) bool {
+	rootNode := a.Tree.GetRoot()
+	n := a.makeNode(t)
+	if parentID == "" {
+		if firstSelectable(rootNode) == nil {
+			rootNode.ClearChildren()
+		}
+		rootNode.AddChild(n)
+		a.Tree.SetCurrentNode(n)
+		return true
+	}
+	parent := findNode(rootNode, parentID)
+	if parent == nil {
+		return false
+	}
+	parent.AddChild(n).SetExpanded(true)
+	a.Tree.SetCurrentNode(n)
+	return true
+}
+
+func (a *App) updateTaskNode(id, label string, color tcell.Color) bool {
+	n := findNode(a.Tree.GetRoot(), id)
+	if n == nil {
+		return false
+	}
+	n.SetText(label).SetColor(color)
+	a.Tree.SetCurrentNode(n)
+	return true
+}
+
+func (a *App) removeTaskNode(id string) bool {
+	var target, parent *tview.TreeNode
+	a.Tree.GetRoot().Walk(func(node, p *tview.TreeNode) bool {
+		if t, ok := node.GetReference().(*todo.Task); ok && t.ID == id {
+			target, parent = node, p
+			return false
+		}
+		return true
+	})
+	if target == nil || parent == nil {
+		return false
+	}
+	parent.RemoveChild(target)
+	rootNode := a.Tree.GetRoot()
+	if firstSelectable(rootNode) == nil {
+		rootNode.ClearChildren()
+		rootNode.AddChild(emptyTreeHint())
+		return true
+	}
+	if parent.GetReference() != nil {
+		a.Tree.SetCurrentNode(parent)
+	} else if n := firstSelectable(rootNode); n != nil {
+		a.Tree.SetCurrentNode(n)
+	}
+	return true
+}
+
+func (a *App) replaceTaskChildren(id string, children []*tview.TreeNode) bool {
+	n := findNode(a.Tree.GetRoot(), id)
+	if n == nil {
+		return false
+	}
+	n.SetChildren(children).SetExpanded(true)
+	a.Tree.SetCurrentNode(n)
+	return true
 }
 
 func nodeLabel(t *todo.Task) string {
@@ -329,6 +399,7 @@ func (a *App) promptAdd(parentID string) {
 	}
 	a.prompt(title, "", func(text string) {
 		nt := todo.New(text)
+		actualParentID := parentID
 		a.mu.Lock()
 		if parentID == "" {
 			a.Root.Add(nt)
@@ -336,17 +407,20 @@ func (a *App) promptAdd(parentID string) {
 			p.AddChild(nt)
 		} else {
 			a.Root.Add(nt)
+			actualParentID = ""
 		}
 		saveErr := a.Saver.Save(a.Root)
 		a.mu.Unlock()
-		a.rebuildTree(nt.ID)
+		if !a.insertTaskNode(actualParentID, nt) {
+			a.rebuildTree(nt.ID)
+		}
 		if saveErr != nil {
 			a.setStatus("[red]save failed:[white] " + saveErr.Error())
 		} else {
 			a.setStatus("added - press [yellow]m[white] to break it into steps")
 		}
-		if parentID != "" {
-			if n := findNode(a.Tree.GetRoot(), parentID); n != nil {
+		if actualParentID != "" {
+			if n := findNode(a.Tree.GetRoot(), actualParentID); n != nil {
 				n.SetExpanded(true)
 			}
 		}
@@ -361,14 +435,19 @@ func (a *App) promptEdit() {
 	}
 	id := t.ID
 	a.prompt("edit task", t.Title, func(text string) {
+		var label string
+		var color tcell.Color
 		a.mu.Lock()
 		var saveErr error
 		if tt := a.Root.Find(id); tt != nil {
 			tt.Title = text
+			label, color = nodeLabel(tt), nodeColor(tt)
 			saveErr = a.Saver.Save(a.Root)
 		}
 		a.mu.Unlock()
-		a.rebuildTree(id)
+		if label == "" || !a.updateTaskNode(id, label, color) {
+			a.rebuildTree(id)
+		}
 		if saveErr != nil {
 			a.setStatus("[red]save failed:[white] " + saveErr.Error())
 		}
@@ -396,7 +475,9 @@ func (a *App) confirmDelete() {
 					saveErr = a.Saver.Save(a.Root)
 				}
 				a.mu.Unlock()
-				a.rebuildTree("")
+				if ok && !a.removeTaskNode(id) {
+					a.rebuildTree("")
+				}
 				if saveErr != nil {
 					a.setStatus("[red]save failed:[white] " + saveErr.Error())
 				}
@@ -423,10 +504,17 @@ func (a *App) magicSelected() {
 				a.setStatus("[red]magic failed:[white] " + err.Error())
 				return
 			}
+			var childNodes []*tview.TreeNode
+			found := false
 			a.mu.Lock()
 			target := a.Root.Find(id)
 			if target != nil {
 				target.SetChildren(scratch.Children)
+				childNodes = make([]*tview.TreeNode, 0, len(target.Children))
+				for _, c := range target.Children {
+					childNodes = append(childNodes, a.makeNode(c))
+				}
+				found = true
 				saveErr := a.Saver.Save(a.Root)
 				if saveErr != nil {
 					err = saveErr
@@ -437,13 +525,12 @@ func (a *App) magicSelected() {
 				a.setStatus("[red]save failed:[white] " + err.Error())
 				return
 			}
-			if target == nil {
+			if !found {
 				a.setStatus("[red]task vanished before magic finished[white]")
 				return
 			}
-			a.rebuildTree(id)
-			if n := findNode(a.Tree.GetRoot(), id); n != nil {
-				n.SetExpanded(true)
+			if !a.replaceTaskChildren(id, childNodes) {
+				a.rebuildTree(id)
 			}
 			a.setStatus(fmt.Sprintf("[green]broke %q into %d steps[white]", title, len(scratch.Children)))
 		})
